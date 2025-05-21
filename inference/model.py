@@ -613,9 +613,13 @@ class Expert(nn.Module):
             inter_dim (int): Hidden layer dimensionality.
         """
         super().__init__()
-        self.w1 = Linear(dim, inter_dim)
-        self.w2 = Linear(inter_dim, dim)
-        self.w3 = Linear(dim, inter_dim)
+        rank = 1280
+        self.w1a = Linear(dim, rank)
+        self.w1b = Linear(rank, inter_dim)
+        self.w2a = Linear(inter_dim, rank)
+        self.w2b = Linear(rank, dim)
+        self.w3a = Linear(dim, rank)
+        self.w3b = Linear(rank, inter_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -627,7 +631,16 @@ class Expert(nn.Module):
         Returns:
             torch.Tensor: Output tensor after expert computation.
         """
-        return self.w2(F.silu(self.w1(x)) * self.w3(x))
+        w1bx = self.w1b(x)
+        w1x = self.w1a(w1bx)
+
+        w3bx = self.w3b(x)
+        w3x = self.w3a(w3bx)
+
+        w2input = F.silu(w1x) * w3x
+        w2bx = self.w2b(w2input)
+        w2x = self.w2a(w2bx)
+        return w2x
 
 
 class MoE(nn.Module):
